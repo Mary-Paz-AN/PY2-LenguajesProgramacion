@@ -1,5 +1,5 @@
 import System.Exit (exitSuccess)
-import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentasción-}
+import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
 import System.IO
 
 {-Opciones Generales
@@ -45,8 +45,8 @@ leerArchivo :: String -> IO [[String]]
 leerArchivo ruta = do
     contenedor <- openFile ruta ReadMode
     contenido <- hGetContents contenedor
-    let lineas = splitOn "\n" contenido
-        contenidoLista = map (splitOn ",") lineas
+    let lineas = Data.List.Split.splitOn "\n" contenido
+        contenidoLista = map (Data.List.Split.splitOn ",") lineas
     return contenidoLista
 
 
