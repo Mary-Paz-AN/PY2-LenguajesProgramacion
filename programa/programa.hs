@@ -1,4 +1,6 @@
 import System.Exit (exitSuccess)
+import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentasción-}
+import System.IO
 
 {-Opciones Generales
 Sub menu para mostrar las opciones generales-}
@@ -37,16 +39,34 @@ opcionesGenerales =
                     opcionesGenerales
 
 
+{-leerArchivo
+Lee un archivo dado por una ruta y devuelve el contenido en una lista de string-}
+leerArchivo :: String -> IO [[String]]
+leerArchivo ruta = do
+    contenedor <- openFile ruta ReadMode
+    contenido <- hGetContents contenedor
+    let lineas = splitOn "\n" contenido
+        contenidoLista = map (splitOn ",") lineas
+    return contenidoLista
+
+
 {-verificarUsuario
 Verifica si el id del usuario existe o no-}
-verificarUsuario :: Bool
-verificarUsuario = True
+verificarUsuario :: String -> IO Bool
+verificarUsuario usuario = do
+    contenido <- leerArchivo "archivos/usuarios.txt"
+    let esUsuario = any (elem usuario) contenido
+    return esUsuario
+
 
 {-Opciones Operativas
 Submenú para las opciones operativas-}
 opcionesOperativas :: IO()
 opcionesOperativas = do
-    let usuario = verificarUsuario
+    putStrLn "\nPorfavor ingrese el id de usuario:"
+    usuarioInput <- getLine
+
+    usuario <- verificarUsuario usuarioInput
 
     if usuario then
         do
