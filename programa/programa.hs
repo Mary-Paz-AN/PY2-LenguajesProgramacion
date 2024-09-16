@@ -1,4 +1,3 @@
-{-# LANGUAGE BlockArguments #-}
 import System.Exit (exitSuccess)
 
 {-Opciones Generales
