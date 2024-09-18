@@ -1,0 +1,4 @@
+1,Sala 1,Edificio 1,4,Frente oficina,20
+2,Sala 2,Edificio 2,4,Frente oficina,15
+3,Sala 3,Edificio 3,4,Frente oficina,10
+4,Sala 4,Edificio 4,4,Frente oficina,10

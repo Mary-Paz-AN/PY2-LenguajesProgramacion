@@ -2,6 +2,7 @@ import System.Exit (exitSuccess)
 import Control.Exception (catch, bracket, IOException)
 import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
 import System.IO
+import System.IO.Error (isEOFError)
 
 {-Data structures y types-}
 data Mobiliario = Mobiliario {codigoM::Int, nombreMobiliario::String, descripcion::String, tipo::String} deriving (Show)
@@ -32,21 +33,33 @@ manejarErrorEscribir e = do
 
 {-leerArchivo
 Lee un archivo dado por una ruta y devuelve el contenido en una lista de string-}
-leerArchivo :: String -> IO [[String]]
-leerArchivo ruta = catch (do
-    contenido <- readFile ruta
-    let lineas = splitOn "\n" contenido
-        contenidoLista = map (splitOn ",") lineas
+leerArchivo :: FilePath -> IO [[String]]
+leerArchivo ruta = do
+  handle <- openFile ruta ReadMode
+  contenidoLista <- leerLineas handle
+  hClose handle
+  return contenidoLista
 
-    return contenidoLista
-    ) manejarError
+leerLineas :: Handle -> IO [[String]]
+leerLineas handle = do
+  eof <- hIsEOF handle
+  if eof
+    then return []
+    else do
+      linea <- catch (hGetLine handle) (\e -> if isEOFError e then return "" else ioError e)
+      let fila = splitOn "," linea
+      rest <- leerLineas handle
+      return (fila : rest)
 
 
 {-escribirAppendArchivo
 Añade un string a un archivo dado por una ruta-}
-escribirAppendArchivo :: String -> String -> IO Bool
-escribirAppendArchivo ruta string = catch (do
-    appendFile ruta string
+escribirAppendArchivo :: FilePath -> String -> IO Bool
+escribirAppendArchivo ruta string = 
+  catch (do
+    handle <- openFile ruta AppendMode
+    hPutStrLn handle string
+    hClose handle
     return True) manejarErrorEscribir
 
 
@@ -127,8 +140,8 @@ cargarSalas salas = do
 
         let strSala = "\n" ++ strCodigo ++ "," ++ nombre ++ "," ++ edificio ++ "," ++ piso ++ "," ++ ubicacion ++ "," ++ capacidad
 
-        let guardado = True {-<- escribirAppendArchivo "archivos/salas.txt" strSala-}
-
+        guardado <- escribirAppendArchivo "archivos/salas.txt" strSala
+        
         if guardado
                 then do
                 putStrLn "Sala añadida exitosamente\n"
