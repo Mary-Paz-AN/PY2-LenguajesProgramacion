@@ -1,3 +1,0 @@
-1,Sala Principal,Edificio Principal,4,Primera puertas despues del asensor,20
-2,Sala 2,Edificio Principal,2,Cuarta puertas despues del asensor,10
-3,Sala 3,Edificio Principal,3,Segunda puertas despues del asensor,15

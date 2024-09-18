@@ -1,5 +1,5 @@
 import System.Exit (exitSuccess)
-import Control.Exception (catch, IOException)
+import Control.Exception (catch, bracket, IOException)
 import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
 import System.IO
 
@@ -34,9 +34,7 @@ manejarErrorEscribir e = do
 Lee un archivo dado por una ruta y devuelve el contenido en una lista de string-}
 leerArchivo :: String -> IO [[String]]
 leerArchivo ruta = catch (do
-    contenedor <- openFile ruta ReadMode
-    contenido <- hGetContents contenedor
-
+    contenido <- readFile ruta
     let lineas = splitOn "\n" contenido
         contenidoLista = map (splitOn ",") lineas
 
@@ -129,7 +127,7 @@ cargarSalas salas = do
 
         let strSala = "\n" ++ strCodigo ++ "," ++ nombre ++ "," ++ edificio ++ "," ++ piso ++ "," ++ ubicacion ++ "," ++ capacidad
 
-        guardado <- escribirAppendArchivo "archivos/salas.txt" strSala
+        let guardado = True {-<- escribirAppendArchivo "archivos/salas.txt" strSala-}
 
         if guardado
                 then do
@@ -166,11 +164,8 @@ mostrarSalas (x:xs) = do
 
 {-CargarMostrarSalas
 Submenú para preguntarle si quiere cargar una sala o ver todas las salas-}
-cargarMostrarSalas:: IO ()
-cargarMostrarSalas = do
-        contenido <- leerArchivo "archivos/salas.txt"
-        let salas = map getSalas contenido
-
+cargarMostrarSalas:: Salas -> IO ()
+cargarMostrarSalas salas = do
         putStrLn "\n--Salas--"
         putStrLn "1. Cargar Sala"
         putStrLn "2. Mostrar salas"
@@ -181,16 +176,16 @@ cargarMostrarSalas = do
         case opcion of
             "1" -> do
                     salas' <- cargarSalas salas
-                    cargarMostrarSalas
+                    cargarMostrarSalas salas'
             "2" -> do
                     mostrarSalas salas
-                    cargarMostrarSalas
+                    cargarMostrarSalas salas
             "3" -> do
                     putStrLn "Volviendo al Opciones Operativas..."
                     opcionesOperativas
             _   -> do
                     putStrLn "Opcion Invalida. Vuelva a intentarlo."
-                    cargarMostrarSalas
+                    cargarMostrarSalas salas
 
 
 {-Opciones Operativas
@@ -210,15 +205,19 @@ opcionesOperativas = do
                         putStrLn "Cargando mobiliario"
                         opcionesOperativas
                 "2" -> do
-                        cargarMostrarSalas
+                        contenido <- leerArchivo "archivos/salas.txt"
+                        let salas = map getSalas contenido
+                        cargarMostrarSalas salas
                         opcionesOperativas
                 "3" -> do
                         putStrLn "Informe de reservas"
                         opcionesOperativas
-                "4" -> putStrLn "Volviendo al Menú Principal..."
+                "4" -> do
+                        putStrLn "Volviendo al Menú Principal..."
+                        menuPrincipal
                 _   -> do
                         putStrLn "Opcion invalida. Vuelva a intentarlo."
-                        menuPrincipal
+                        opcionesOperativas
 
 
 {-Menu principal-}
