@@ -108,6 +108,24 @@ opcionesGenerales =
                     putStrLn "Opcion invalida. Vuelva a intentarlo."
                     opcionesGenerales
 
+{-verificarMobiliario
+Verifica si el id del mobiliario existe o no-}
+verificarMobiliario :: Mobiliarios -> Int -> IO Bool
+verificarMobiliario mobiliarios codigo = do
+    let esMobilario = any (\m -> codigoM m == codigo) mobiliarios
+    return esMobilario
+
+
+{-mostrarMobiliarios
+Muestra los mobiliarios en memoria-}
+mostrarMobiliarios:: Mobiliarios ->  IO ()
+mostrarMobiliarios (x:xs) = do
+        putStrLn $ "\nCódigo: " ++ show (codigoM x)
+        putStrLn $ "Nombre: " ++ nombreMobiliario x
+        putStrLn $ "Descripción: " ++ descripcion x
+        putStrLn $ "Tipo: " ++ tipo x
+        mostrarMobiliarios xs
+
 
 {-getSalas
 devuelve una lista de Sala para guardar en memoria-}
@@ -118,8 +136,8 @@ getSalas [codigo, nombre, edificio, piso, ubicacion, capacidad] =
 
 {-cargarSalas
 Le pide al usuario la información para crear una sala. Luego se guarda en memoria y en un archivo y por ultimo, le muestra el codigo y su información-}
-cargarSalas:: Salas -> IO Salas
-cargarSalas salas = do
+cargarSalas:: Salas -> Mobiliarios -> IO Salas
+cargarSalas salas mobiliarios = do
         putStrLn "\nIngrese el nombre de la sala:"
         nombre <- getLine
 
@@ -140,6 +158,17 @@ cargarSalas salas = do
 
         let strSala = "\n" ++ strCodigo ++ "," ++ nombre ++ "," ++ edificio ++ "," ++ piso ++ "," ++ ubicacion ++ "," ++ capacidad
 
+        putStrLn ""
+        mostrarMobiliarios mobiliarios
+        putStrLn "\nElija los mobiliarios a agregar"
+        putStrLn "Ingrese el codigo del mobiliario:"
+        codigoMobi <- getLine
+
+        esMobiliario <- verificarMobiliario mobiliarios (read codigoMobi :: Int)
+
+        {-Volver a pedir codigo si esta equvocado-}
+
+        
         guardado <- escribirAppendArchivo "archivos/salas.txt" strSala
         
         if guardado
@@ -154,17 +183,16 @@ cargarSalas salas = do
 
                 let nuevaSala = Sala { codigoS = codigo, nombreSala = nombre, edificio = edificio, piso = read piso, ubicacion = ubicacion, capacidad = read capacidad }
 
-                -- Devuelve la nueva lista de salas
                 return (salas ++ [nuevaSala])
         else do
                 putStrLn "Error al añadir la sala. Intente nuevamente."
-                cargarSalas salas
+                cargarSalas salas mobiliarios
 
 
 {-mostrarSalas
 Muestra todas las salas en memoria-}
-mostrarSalas:: Salas -> IO ()
-mostrarSalas [] = putStrLn "\nNo hay salas disponibles."
+mostrarSalas:: Salas ->  IO ()
+mostrarSalas []  = putStrLn "\nNo hay salas disponibles."
 mostrarSalas (x:xs) = do
         putStrLn $ "\nCódigo: " ++ show (codigoS x)
         putStrLn $ "Nombre: " ++ nombreSala x
@@ -177,8 +205,8 @@ mostrarSalas (x:xs) = do
 
 {-CargarMostrarSalas
 Submenú para preguntarle si quiere cargar una sala o ver todas las salas-}
-cargarMostrarSalas:: Salas -> IO ()
-cargarMostrarSalas salas = do
+cargarMostrarSalas:: Salas -> Mobiliarios -> IO ()
+cargarMostrarSalas salas mobiliarios = do
         putStrLn "\n--Salas--"
         putStrLn "1. Cargar Sala"
         putStrLn "2. Mostrar salas"
@@ -188,23 +216,23 @@ cargarMostrarSalas salas = do
 
         case opcion of
             "1" -> do
-                    salas' <- cargarSalas salas
-                    cargarMostrarSalas salas'
+                    salas' <- cargarSalas salas mobiliarios
+                    cargarMostrarSalas salas' mobiliarios
             "2" -> do
-                    mostrarSalas salas
-                    cargarMostrarSalas salas
+                    mostrarSalas salas 
+                    cargarMostrarSalas salas mobiliarios
             "3" -> do
                     putStrLn "Volviendo al Opciones Operativas..."
-                    opcionesOperativas
+                    opcionesOperativas mobiliarios
             _   -> do
                     putStrLn "Opcion Invalida. Vuelva a intentarlo."
-                    cargarMostrarSalas salas
+                    cargarMostrarSalas salas mobiliarios
 
 
 {-Opciones Operativas
 Submenú para las opciones operativas-}
-opcionesOperativas :: IO()
-opcionesOperativas = do
+opcionesOperativas :: Mobiliarios -> IO()
+opcionesOperativas mobiliarios = do
         putStrLn "\n--Opciones Operativas--"
         putStrLn "1. Crear y mostrar mobiliario"
         putStrLn "2. Cargar y mostrar sala de reunión"
@@ -216,21 +244,24 @@ opcionesOperativas = do
         case opcion of
                 "1" -> do
                         putStrLn "Cargando mobiliario"
-                        opcionesOperativas
+                        opcionesOperativas mobiliarios
                 "2" -> do
-                        contenido <- leerArchivo "archivos/salas.txt"
-                        let salas = map getSalas contenido
-                        cargarMostrarSalas salas
-                        opcionesOperativas
+                        if null mobiliarios then
+                                putStrLn "\nTodavia no se han cargado mobiliarios"
+                        else do
+                                contenido <- leerArchivo "archivos/salas.txt"
+                                let salas = map getSalas contenido
+                                cargarMostrarSalas salas mobiliarios
+                        opcionesOperativas mobiliarios
                 "3" -> do
                         putStrLn "Informe de reservas"
-                        opcionesOperativas
+                        opcionesOperativas mobiliarios
                 "4" -> do
                         putStrLn "Volviendo al Menú Principal..."
                         menuPrincipal
                 _   -> do
                         putStrLn "Opcion invalida. Vuelva a intentarlo."
-                        opcionesOperativas
+                        opcionesOperativas mobiliarios
 
 
 {-Menu principal-}
@@ -251,7 +282,7 @@ menuPrincipal =
                     usuario <- verificarUsuario usuarioInput
 
                     if usuario then
-                        opcionesOperativas
+                        opcionesOperativas []
                     else
                         putStrLn "El id de usuario puesto no es valido"
 
