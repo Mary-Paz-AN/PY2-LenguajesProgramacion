@@ -1,0 +1,5 @@
+4,Silla Gamer,Silla de cuero,Menaje
+0,Mesa de Billar,Mesa de madera,Menaje
+3,Mesa de comedor,Mesa de madera,Menaje
+2,Lampara de pie,Lampara moderna,Electronico
+1,Silla de oficina,Una silla ergonomica,Menaje
