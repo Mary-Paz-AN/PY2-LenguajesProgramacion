@@ -2,7 +2,7 @@ import System.Exit (exitSuccess)
 import Control.Exception (catch, bracket, IOException)
 import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
 import System.IO
-import System.IO.Error (isEOFError)
+import System.IO.Error (isEOFError,isDoesNotExistError)
 
 {-Data structures y types-}
 data Mobiliario = Mobiliario {codigoM::Int, nombreMobiliario::String, descripcion::String, tipo::String} deriving (Show)
@@ -14,6 +14,60 @@ type Mobiliarios = [Mobiliario]
 type Salas = [Sala]
 type MobiliariosSala = [MobiliarioSala]
 type Reservas = [Reserva]
+
+
+manejarErrorArchivo :: IOException -> IO [[String]]
+manejarErrorArchivo e
+  | isDoesNotExistError e = do
+      putStrLn "El archivo no existe. Por favor, verifica la ruta."
+      return []
+  | otherwise = ioError e
+  
+
+
+cargarYMostrarMobiliario :: [Mobiliario] -> IO ()
+cargarYMostrarMobiliario mobiliarioActual = do
+  putStrLn "Ingresa la ruta del archivo para cargar nuevos ítems:"
+  ruta <- getLine
+  contenido <- leerArchivo ruta
+  if null contenido
+    then putStrLn "No se pudo cargar ningún mobiliario debido a un error."
+    else do
+      let nuevoMobiliario = cargarMobiliario contenido mobiliarioActual
+      putStrLn "Mobiliario cargado:"
+      mapM_ print nuevoMobiliario
+      -- Guardamos el mobiliario actualizado en un archivo
+      guardarMobiliario "archivos/mobiliarioGuardado.txt" nuevoMobiliario
+
+-- Cargar nuevos ítems sin duplicar códigos
+cargarMobiliario :: [[String]] -> [Mobiliario] -> [Mobiliario]
+cargarMobiliario [] mobiliario = mobiliario
+cargarMobiliario (fila:filaRestante) mobiliario = 
+  let nuevoItem = parseMobiliario fila
+  in if any (\item -> codigoM item == codigoM nuevoItem) mobiliario
+       then cargarMobiliario filaRestante mobiliario  -- Ignorar duplicados
+       else cargarMobiliario filaRestante (nuevoItem : mobiliario)
+
+-- Definición de la función que convierte un Mobiliario en un String
+mobiliarioToString :: Mobiliario -> String
+mobiliarioToString Mobiliario { codigoM, nombreMobiliario, descripcion, tipo } =
+    show codigoM ++ "," ++ nombreMobiliario ++ "," ++ descripcion ++ "," ++ tipo
+
+-- Función para guardar la lista de mobiliario en un archivo
+guardarMobiliario :: FilePath -> [Mobiliario] -> IO ()
+guardarMobiliario ruta mobiliario = writeFile ruta (unlines $ map mobiliarioToString mobiliario)
+
+-- Cargar mobiliario desde un archivo almacenado previamente
+cargarMobiliarioDesdeArchivo :: FilePath -> IO [Mobiliario]
+cargarMobiliarioDesdeArchivo ruta = do
+    contenido <- leerArchivo ruta
+    let nuevoMobiliario = cargarMobiliario contenido []
+    return nuevoMobiliario  -- Asegúrate de retornar el nuevo mobiliario si lo necesitas
+
+parseMobiliario :: [String] -> Mobiliario
+parseMobiliario [codigoStr, nombre, desc, tipo] = 
+  Mobiliario { codigoM = read codigoStr, nombreMobiliario = nombre, descripcion = desc, tipo = tipo }
+parseMobiliario _ = error "Formato incorrecto en el archivo"
 
 {-manejarError
 Maneja los errores al abrir el archivo-}
@@ -34,11 +88,12 @@ manejarErrorEscribir e = do
 {-leerArchivo
 Lee un archivo dado por una ruta y devuelve el contenido en una lista de string-}
 leerArchivo :: FilePath -> IO [[String]]
-leerArchivo ruta = do
+leerArchivo ruta = catch (do
   handle <- openFile ruta ReadMode
   contenidoLista <- leerLineas handle
   hClose handle
-  return contenidoLista
+  return contenidoLista)
+  manejarErrorArchivo
 
 leerLineas :: Handle -> IO [[String]]
 leerLineas handle = do
@@ -243,7 +298,11 @@ opcionesOperativas mobiliarios = do
 
         case opcion of
                 "1" -> do
-                        putStrLn "Cargando mobiliario"
+                        mobiliarioActual <- cargarMobiliarioDesdeArchivo "archivos/mobiliarioGuardado.txt"
+                        putStrLn "Mobiliario previamente cargado:"
+                        mapM_ print mobiliarioActual
+                        
+                        cargarYMostrarMobiliario []
                         opcionesOperativas mobiliarios
                 "2" -> do
                         if null mobiliarios then
