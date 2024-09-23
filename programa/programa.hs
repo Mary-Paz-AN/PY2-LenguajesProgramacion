@@ -22,10 +22,9 @@ manejarErrorArchivo e
       putStrLn "El archivo no existe. Por favor, verifica la ruta."
       return []
   | otherwise = ioError e
-  
 
 
-cargarYMostrarMobiliario :: [Mobiliario] -> IO ()
+cargarYMostrarMobiliario :: Mobiliarios -> IO ()
 cargarYMostrarMobiliario mobiliarioActual = do
   putStrLn "Ingresa la ruta del archivo para cargar nuevos ítems:"
   ruta <- getLine
@@ -39,8 +38,9 @@ cargarYMostrarMobiliario mobiliarioActual = do
       -- Guardamos el mobiliario actualizado en un archivo
       guardarMobiliario "archivos/mobiliarioGuardado.txt" nuevoMobiliario
 
+
 -- Cargar nuevos ítems sin duplicar códigos
-cargarMobiliario :: [[String]] -> [Mobiliario] -> [Mobiliario]
+cargarMobiliario :: [[String]] -> Mobiliarios -> Mobiliarios
 cargarMobiliario [] mobiliario = mobiliario
 cargarMobiliario (fila:filaRestante) mobiliario = 
   let nuevoItem = parseMobiliario fila
@@ -48,26 +48,31 @@ cargarMobiliario (fila:filaRestante) mobiliario =
        then cargarMobiliario filaRestante mobiliario  -- Ignorar duplicados
        else cargarMobiliario filaRestante (nuevoItem : mobiliario)
 
+
 -- Definición de la función que convierte un Mobiliario en un String
 mobiliarioToString :: Mobiliario -> String
 mobiliarioToString Mobiliario { codigoM, nombreMobiliario, descripcion, tipo } =
     show codigoM ++ "," ++ nombreMobiliario ++ "," ++ descripcion ++ "," ++ tipo
 
+
 -- Función para guardar la lista de mobiliario en un archivo
-guardarMobiliario :: FilePath -> [Mobiliario] -> IO ()
+guardarMobiliario :: FilePath -> Mobiliarios -> IO ()
 guardarMobiliario ruta mobiliario = writeFile ruta (unlines $ map mobiliarioToString mobiliario)
 
+
 -- Cargar mobiliario desde un archivo almacenado previamente
-cargarMobiliarioDesdeArchivo :: FilePath -> IO [Mobiliario]
+cargarMobiliarioDesdeArchivo :: FilePath -> IO Mobiliarios
 cargarMobiliarioDesdeArchivo ruta = do
     contenido <- leerArchivo ruta
     let nuevoMobiliario = cargarMobiliario contenido []
     return nuevoMobiliario  -- Asegúrate de retornar el nuevo mobiliario si lo necesitas
 
+
 parseMobiliario :: [String] -> Mobiliario
 parseMobiliario [codigoStr, nombre, desc, tipo] = 
   Mobiliario { codigoM = read codigoStr, nombreMobiliario = nombre, descripcion = desc, tipo = tipo }
 parseMobiliario _ = error "Formato incorrecto en el archivo"
+
 
 {-manejarError
 Maneja los errores al abrir el archivo-}
