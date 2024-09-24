@@ -24,6 +24,50 @@ manejarErrorArchivo e
   | otherwise = ioError e
 
 
+{-manejarErrorEscribir
+Maneja los errores al escribir en el archivo-}
+manejarErrorEscribir :: IOError -> IO Bool
+manejarErrorEscribir e = do
+    putStrLn $ "Error al escribir en el archivo: " ++ show e
+    return False
+
+
+{-leerArchivo
+Lee un archivo dado por una ruta y devuelve el contenido en una lista de string-}
+leerArchivo :: FilePath -> IO [[String]]
+leerArchivo ruta = catch (do
+  handle <- openFile ruta ReadMode
+  contenidoLista <- leerLineas handle
+  hClose handle
+  return contenidoLista)
+  manejarErrorArchivo
+
+
+{-leerLineas
+Lee cada linea del archivo para convertirla-}
+leerLineas :: Handle -> IO [[String]]
+leerLineas handle = do
+  eof <- hIsEOF handle
+  if eof
+    then return []
+    else do
+      linea <- catch (hGetLine handle) (\e -> if isEOFError e then return "" else ioError e)
+      let fila = splitOn "," linea
+      rest <- leerLineas handle
+      return (fila : rest)
+
+
+{-escribirAppendArchivo
+Añade un string a un archivo dado por una ruta-}
+escribirAppendArchivo :: FilePath -> String -> IO Bool
+escribirAppendArchivo ruta string =
+  catch (do
+    handle <- openFile ruta AppendMode
+    hPutStrLn handle string
+    hClose handle
+    return True) manejarErrorEscribir
+
+    
 cargarYMostrarMobiliario :: Mobiliarios -> IO Mobiliarios
 cargarYMostrarMobiliario mobiliarioActual = do
   putStrLn "Ingresa la ruta del archivo para cargar nuevos ítems:"
@@ -77,55 +121,6 @@ parseMobiliario :: [String] -> Mobiliario
 parseMobiliario [codigoStr, nombre, desc, tipo] =
   Mobiliario { codigoM = read codigoStr, nombreMobiliario = nombre, descripcion = desc, tipo = tipo }
 parseMobiliario _ = error "Formato incorrecto en el archivo"
-
-
-{-manejarError
-Maneja los errores al abrir el archivo-}
-manejarError :: IOException -> IO [[String]]
-manejarError _ = do
-    putStrLn "Ocurrio un error a leer el archivo."
-    return []
-
-
-{-manejarErrorEscribir
-Maneja los errores al escribir en el archivo-}
-manejarErrorEscribir :: IOError -> IO Bool
-manejarErrorEscribir e = do
-    putStrLn $ "Error al escribir en el archivo: " ++ show e
-    return False
-
-
-{-leerArchivo
-Lee un archivo dado por una ruta y devuelve el contenido en una lista de string-}
-leerArchivo :: FilePath -> IO [[String]]
-leerArchivo ruta = catch (do
-  handle <- openFile ruta ReadMode
-  contenidoLista <- leerLineas handle
-  hClose handle
-  return contenidoLista)
-  manejarErrorArchivo
-
-leerLineas :: Handle -> IO [[String]]
-leerLineas handle = do
-  eof <- hIsEOF handle
-  if eof
-    then return []
-    else do
-      linea <- catch (hGetLine handle) (\e -> if isEOFError e then return "" else ioError e)
-      let fila = splitOn "," linea
-      rest <- leerLineas handle
-      return (fila : rest)
-
-
-{-escribirAppendArchivo
-Añade un string a un archivo dado por una ruta-}
-escribirAppendArchivo :: FilePath -> String -> IO Bool
-escribirAppendArchivo ruta string =
-  catch (do
-    handle <- openFile ruta AppendMode
-    hPutStrLn handle string
-    hClose handle
-    return True) manejarErrorEscribir
 
 
 {-verificarUsuario
