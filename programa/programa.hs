@@ -194,10 +194,10 @@ Muestra los mobiliarios en memoria-}
 mostrarMobiliarios:: Mobiliarios ->  IO ()
 mostrarMobiliarios [] = putStrLn ""
 mostrarMobiliarios (x:xs) = do
-        putStrLn $ "\nCódigo: " ++ show (codigoM x)
+        putStrLn $ "Código: " ++ show (codigoM x)
         putStrLn $ "Nombre: " ++ nombreMobiliario x
         putStrLn $ "Descripción: " ++ descripcion x
-        putStrLn $ "Tipo: " ++ tipo x
+        putStrLn $ "Tipo: " ++ tipo x ++ "\n"
         mostrarMobiliarios xs
 
 
@@ -207,10 +207,10 @@ mobiliarioXCodigo :: Int -> Mobiliarios -> IO ()
 mobiliarioXCodigo code mobiliarios = do
         let mobiliario = head (filter (\x -> codigoM x == code) mobiliarios)
 
-        putStrLn $ "\nCódigo: " ++ show (codigoM mobiliario)
+        putStrLn $ "Código: " ++ show (codigoM mobiliario)
         putStrLn $ "Nombre: " ++ nombreMobiliario mobiliario
         putStrLn $ "Descripción: " ++ descripcion mobiliario
-        putStrLn $ "Tipo: " ++ tipo mobiliario
+        putStrLn $ "Tipo: " ++ tipo mobiliario ++ "\n"
 
 
 {-getMobiliarioSala
@@ -227,17 +227,62 @@ getSalas [codigo, nombre, edificio, piso, ubicacion, capacidad] =
     Sala { codigoS = read codigo, nombreSala = nombre, edificio = edificio, piso = read piso, ubicacion = ubicacion, capacidad = read capacidad }
 
 
+{-preguntaConfirmacion
+Pregunta si desea continuar con la accion-}
+preguntaConfirmacion :: IO Bool
+preguntaConfirmacion = do
+        putStrLn "Desea agregar otro mobiliario (Y/N):"
+        respuesta <- getLine
+
+        case respuesta of
+                "Y" -> return True
+                "N" -> return False
+                _ -> do
+                        putStrLn "\nOpción no valida. Vuelva a intentarlo"
+                        preguntaConfirmacion
+
+
 {-preguntarXMobiliario
 Pregunta por el mobiliario que va a añadir a la sala. Y guarda la información-}
 preguntarXMobiliario :: Int -> MobiliariosSala ->  Mobiliarios -> IO MobiliariosSala
-preguntarXMobiliario 0 ms mobi = return ms
+preguntarXMobiliario 0 ms mobi = do
+        putStrLn "Mobiliario cargado exitosamente."
+        return ms
+preguntarXMobiliario codSala ms mobi = do
+        putStrLn "Ingrese el codigo del mobiliario:"
+        codigoMobi <- getLine
+
+        let intCode = read codigoMobi :: Int
+        esMobiliario <- verificarMobiliario mobi intCode
+
+        if esMobiliario then do
+                --Guardar el mobiliario con su sala
+                guardado <- escribirAppendArchivo "archivos/mobiliarioSalas.txt" ("\n" ++ codigoMobi ++ "," ++ show codSala)
+                if guardado then do
+                        let nuevaMobiSala = MobiliarioSala { codigoSala = codSala, codigoMobiliario = intCode }
+
+                        continuar <- preguntaConfirmacion
+                        if continuar then do
+                                putStrLn ""
+                                preguntarXMobiliario codSala (ms ++ [nuevaMobiSala]) mobi
+                        else do
+                                preguntarXMobiliario 0 (ms ++ [nuevaMobiSala]) mobi
+                else do
+                        putStrLn "Hubo un error al guardar el mobiliario de la sala."
+                        putStrLn "Porfavor vuelva a intentarlo.\n"
+                        preguntarXMobiliario codSala ms mobi
+        else do
+                putStrLn "El código indicado no es válido."
+                putStrLn "Porfavor vuelva a intentarlo.\n"
+                preguntarXMobiliario codSala ms mobi
 
 
 {-cargarMobiliarioSala
 Le pide al usuario por el mobiliario a agregar a la nueva sala. Luego guarda en memoria y en un archivo.-}
 cargarMobiliarioSala :: Salas -> MobiliariosSala -> Mobiliarios -> IO MobiliariosSala
 cargarMobiliarioSala salas ms mobiliarios = do
-    let codigo = succ (codigoS (last salas))
+    let codigo = codigoS (last salas)
+    putStrLn "\nElija los mobiliarios a agregar"
     preguntarXMobiliario codigo ms mobiliarios
 
 
@@ -306,7 +351,7 @@ mostrarSala salas mobiliariosSala mobiliarios = do
                 putStrLn $ "Ubicación: " ++ ubicacion sala
                 putStrLn $ "Capacidad: " ++ show (capacidad sala)
 
-                putStrLn "\nMobiliario:"
+                putStrLn "\nMobiliario de la sala:"
                 let listMobi = filter (\y -> codigoSala y == intCode) mobiliariosSala
                 mapM_ (\z -> mobiliarioXCodigo (codigoMobiliario z) mobiliarios) listMobi
         else do
@@ -328,6 +373,7 @@ cargarMostrarSalas salas mobiliariosSala mobiliarios = do
         case opcion of
             "1" -> do
                     salas' <- cargarSalas salas
+                    putStrLn "\nMobilarios disponibles:"
                     mostrarMobiliarios mobiliarios
                     mobiliarioSala' <- cargarMobiliarioSala salas' mobiliariosSala mobiliarios
                     cargarMostrarSalas salas' mobiliarioSala' mobiliarios
