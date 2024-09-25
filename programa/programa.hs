@@ -3,6 +3,7 @@ import Control.Exception (catch, bracket, IOException)
 import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
 import System.IO
 import System.IO.Error (isEOFError,isDoesNotExistError)
+import Text.Read
 
 {-Data structures y types-}
 data Mobiliario = Mobiliario {codigoM::Int, nombreMobiliario::String, descripcion::String, tipo::String} deriving (Show)
@@ -67,60 +68,29 @@ escribirAppendArchivo ruta string =
     hClose handle
     return True) manejarErrorEscribir
 
-    
-cargarYMostrarMobiliario :: Mobiliarios -> IO Mobiliarios
-cargarYMostrarMobiliario mobiliarioActual = do
-  putStrLn "Ingresa la ruta del archivo para cargar nuevos ítems:"
-  ruta <- getLine
-  contenido <- leerArchivo ruta
-  if null contenido then do
-        putStrLn "No se pudo cargar ningún mobiliario debido a un error."
-        return mobiliarioActual
-    else do
-      let nuevoMobiliario = cargarMobiliario contenido mobiliarioActual
-      putStrLn "Mobiliario cargado:"
-      mapM_ print nuevoMobiliario
 
-      -- Guardamos el mobiliario actualizado en un archivo
-      guardarMobiliario "archivos/mobiliarioGuardado.txt" nuevoMobiliario
-
-      return nuevoMobiliario
+{-esEntero
+Verificia si un string ado es entero o no-}
+esEntero :: String -> Bool
+esEntero input = case readMaybe input :: Maybe Int of
+        Just _ -> True
+        Nothing -> False
 
 
-
--- Cargar nuevos ítems sin duplicar códigos
-cargarMobiliario :: [[String]] -> Mobiliarios -> Mobiliarios
-cargarMobiliario [] mobiliario = mobiliario
-cargarMobiliario (fila:filaRestante) mobiliario =
-  let nuevoItem = parseMobiliario fila
-  in if any (\item -> codigoM item == codigoM nuevoItem) mobiliario
-       then cargarMobiliario filaRestante mobiliario  -- Ignorar duplicados
-       else cargarMobiliario filaRestante (nuevoItem : mobiliario)
+{-verificarSala
+Verifica si el id de la sala existe o no-}
+verificarSala :: Salas -> Int -> IO Bool
+verificarSala salas codigo = do
+    let esSala = any (\s -> codigoS s == codigo) salas
+    return esSala
 
 
--- Definición de la función que convierte un Mobiliario en un String
-mobiliarioToString :: Mobiliario -> String
-mobiliarioToString Mobiliario { codigoM, nombreMobiliario, descripcion, tipo } =
-    show codigoM ++ "," ++ nombreMobiliario ++ "," ++ descripcion ++ "," ++ tipo
-
-
--- Función para guardar la lista de mobiliario en un archivo
-guardarMobiliario :: FilePath -> Mobiliarios -> IO ()
-guardarMobiliario ruta mobiliario = writeFile ruta (unlines $ map mobiliarioToString mobiliario)
-
-
--- Cargar mobiliario desde un archivo almacenado previamente
-cargarMobiliarioDesdeArchivo :: FilePath -> IO Mobiliarios
-cargarMobiliarioDesdeArchivo ruta = do
-    contenido <- leerArchivo ruta
-    let nuevoMobiliario = cargarMobiliario contenido []
-    return nuevoMobiliario  -- Asegúrate de retornar el nuevo mobiliario si lo necesitas
-
-
-parseMobiliario :: [String] -> Mobiliario
-parseMobiliario [codigoStr, nombre, desc, tipo] =
-  Mobiliario { codigoM = read codigoStr, nombreMobiliario = nombre, descripcion = desc, tipo = tipo }
-parseMobiliario _ = error "Formato incorrecto en el archivo"
+{-verificarMobiliario
+Verifica si el id del mobiliario existe o no-}
+verificarMobiliario :: Mobiliarios -> Int -> IO Bool
+verificarMobiliario mobiliarios codigo = do
+    let esMobilario = any (\m -> codigoM m == codigo) mobiliarios
+    return esMobilario
 
 
 {-verificarUsuario
@@ -168,21 +138,6 @@ opcionesGenerales =
                     putStrLn "Opcion invalida. Vuelva a intentarlo."
                     opcionesGenerales
 
-{-verificarSala
-Verifica si el id de la sala existe o no-}
-verificarSala :: Salas -> Int -> IO Bool
-verificarSala salas codigo = do
-    let esSala = any (\s -> codigoS s == codigo) salas
-    return esSala
-
-
-{-verificarMobiliario
-Verifica si el id del mobiliario existe o no-}
-verificarMobiliario :: Mobiliarios -> Int -> IO Bool
-verificarMobiliario mobiliarios codigo = do
-    let esMobilario = any (\m -> codigoM m == codigo) mobiliarios
-    return esMobilario
-
 
 {-mostrarMobiliarios
 Muestra los mobiliarios en memoria-}
@@ -206,20 +161,6 @@ mobiliarioXCodigo code mobiliarios = do
         putStrLn $ "Nombre: " ++ nombreMobiliario mobiliario
         putStrLn $ "Descripción: " ++ descripcion mobiliario
         putStrLn $ "Tipo: " ++ tipo mobiliario ++ "\n"
-
-
-{-getMobiliarioSala
-devuelve una lista de MobiliarioSala para guardar en memoria-}
-getMobiliarioSala:: [String] -> MobiliarioSala
-getMobiliarioSala [codigoS, codigoM] =
-    MobiliarioSala { codigoSala = read codigoS, codigoMobiliario = read codigoM }
-
-
-{-getSalas
-devuelve una lista de Sala para guardar en memoria-}
-getSalas:: [String] -> Sala
-getSalas [codigo, nombre, edificio, piso, ubicacion, capacidad] =
-    Sala { codigoS = read codigo, nombreSala = nombre, edificio = edificio, piso = read piso, ubicacion = ubicacion, capacidad = read capacidad }
 
 
 {-preguntaConfirmacion
@@ -252,7 +193,7 @@ preguntarXMobiliario codSala ms mobi = do
 
         if esMobiliario then do
                 --Guardar el mobiliario con su sala
-                guardado <- escribirAppendArchivo "archivos/mobiliarioSalas.txt" ("\n" ++ codigoMobi ++ "," ++ show codSala)
+                guardado <- escribirAppendArchivo "archivos/mobiliarioSalas.txt" (show codSala ++ "," ++ codigoMobi)
                 if guardado then do
                         let nuevaMobiSala = MobiliarioSala { codigoSala = codSala, codigoMobiliario = intCode }
 
@@ -281,6 +222,48 @@ cargarMobiliarioSala salas ms mobiliarios = do
     preguntarXMobiliario codigo ms mobiliarios
 
 
+{-preguntarXPiso
+Le pregunta al usuario por el piso en el que se encuentra la sala y verifica si el dato ingresado por el usuario sea correcto-}
+preguntarXPiso:: IO String
+preguntarXPiso = do
+        putStrLn "Ingrese el piso en el que se encuentra la sala:"
+        piso <- getLine
+
+        if esEntero piso then 
+                if piso == "0" then do
+                        putStrLn "\nNo existe el piso 0. Porfavor vuelva a ingresarlo."
+                        preguntarXPiso
+                else do
+                        if read piso < 0 then do
+                                putStrLn "\nEl número de piso no puede ser negativo. Porfavor vuelva a ingresarlo"
+                                preguntarXPiso
+                        else return piso
+        else do
+                putStrLn "\nEl valor ingresado no es un entero. Intente nuevamente."
+                preguntarXPiso
+
+
+{-preguntarXCantidad
+Le pregunta al usuario por la cantidad de la sala y verifica si el dato ingresado por el usuario sea correcto-}
+preguntarXCantidad:: IO String
+preguntarXCantidad = do
+        putStrLn "Ingrese la capacidad de la sala:"
+        capacidad <- getLine
+
+        if esEntero capacidad then 
+                if capacidad == "0" then do
+                        putStrLn "\nLa catidad no puede ser 0. Porfavor vuelva a ingresarla."
+                        preguntarXCantidad
+                else do
+                        if read capacidad < 0 then do
+                                putStrLn "\nLa cantidad no puede ser negativa. Porfavor vuelva a ingresarla"
+                                preguntarXCantidad
+                        else return capacidad
+        else do
+                putStrLn "\nEl valor ingresado no es un entero. Intente nuevamente."
+                preguntarXCantidad
+
+
 {-cargarSalas
 Le pide al usuario la información para crear una sala. Luego se guarda en memoria y en un archivo y por ultimo, le muestra el codigo y su información-}
 cargarSalas:: Salas -> IO Salas
@@ -291,19 +274,17 @@ cargarSalas salas = do
         putStrLn "Ingrese el edificio en el que se encuentra la sala:"
         edificio <- getLine
 
-        putStrLn "Ingrese el piso en el que se encuentra la sala:"
-        piso <- getLine
+        piso <- preguntarXPiso
 
         putStrLn "Ingrese la ubicación en el que se encuentra la sala:"
         ubicacion <- getLine
 
-        putStrLn "Ingrese la capacidad de la sala:"
-        capacidad <- getLine
+        capacidad <- preguntarXCantidad
 
         let codigo = succ (codigoS (last salas))
         let strCodigo = show codigo
 
-        let strSala = "\n" ++ strCodigo ++ "," ++ nombre ++ "," ++ edificio ++ "," ++ piso ++ "," ++ ubicacion ++ "," ++ capacidad
+        let strSala = strCodigo ++ "," ++ nombre ++ "," ++ edificio ++ "," ++ piso ++ "," ++ ubicacion ++ "," ++ capacidad
 
         guardado <- escribirAppendArchivo "archivos/salas.txt" strSala
 
@@ -326,7 +307,7 @@ cargarSalas salas = do
 
 
 {-mostrarSalas
-Muestra todas las salas en memoria-}
+Muestra la sala dependiendo según el código dado-}
 mostrarSala:: Salas ->  MobiliariosSala -> Mobiliarios -> IO ()
 mostrarSala []  mobiliariosSala mobiliarios  = putStrLn "\nNo hay salas disponibles."
 mostrarSala salas mobiliariosSala mobiliarios = do
@@ -381,6 +362,74 @@ cargarMostrarSalas salas mobiliariosSala mobiliarios = do
             _   -> do
                     putStrLn "Opcion Invalida. Vuelva a intentarlo."
                     cargarMostrarSalas salas mobiliariosSala mobiliarios
+
+
+{-getMobiliarioSala
+devuelve una lista de MobiliarioSala para guardar en memoria-}
+getMobiliarioSala:: [String] -> MobiliarioSala
+getMobiliarioSala [codigoS, codigoM] =
+    MobiliarioSala { codigoSala = read codigoS, codigoMobiliario = read codigoM }
+
+
+{-getSalas
+devuelve una lista de Sala para guardar en memoria-}
+getSalas:: [String] -> Sala
+getSalas [codigo, nombre, edificio, piso, ubicacion, capacidad] =
+    Sala { codigoS = read codigo, nombreSala = nombre, edificio = edificio, piso = read piso, ubicacion = ubicacion, capacidad = read capacidad }
+
+
+cargarYMostrarMobiliario :: Mobiliarios -> IO Mobiliarios
+cargarYMostrarMobiliario mobiliarioActual = do
+  putStrLn "Ingresa la ruta del archivo para cargar nuevos ítems:"
+  ruta <- getLine
+  contenido <- leerArchivo ruta
+  if null contenido then do
+        putStrLn "No se pudo cargar ningún mobiliario debido a un error."
+        return mobiliarioActual
+    else do
+      let nuevoMobiliario = cargarMobiliario contenido mobiliarioActual
+      putStrLn "Mobiliario cargado:"
+      mapM_ print nuevoMobiliario
+
+      -- Guardamos el mobiliario actualizado en un archivo
+      guardarMobiliario "archivos/mobiliarioGuardado.txt" nuevoMobiliario
+
+      return nuevoMobiliario
+
+
+-- Cargar nuevos ítems sin duplicar códigos
+cargarMobiliario :: [[String]] -> Mobiliarios -> Mobiliarios
+cargarMobiliario [] mobiliario = mobiliario
+cargarMobiliario (fila:filaRestante) mobiliario =
+  let nuevoItem = parseMobiliario fila
+  in if any (\item -> codigoM item == codigoM nuevoItem) mobiliario
+       then cargarMobiliario filaRestante mobiliario  -- Ignorar duplicados
+       else cargarMobiliario filaRestante (nuevoItem : mobiliario)
+
+
+-- Definición de la función que convierte un Mobiliario en un String
+mobiliarioToString :: Mobiliario -> String
+mobiliarioToString Mobiliario { codigoM, nombreMobiliario, descripcion, tipo } =
+    show codigoM ++ "," ++ nombreMobiliario ++ "," ++ descripcion ++ "," ++ tipo
+
+
+-- Función para guardar la lista de mobiliario en un archivo
+guardarMobiliario :: FilePath -> Mobiliarios -> IO ()
+guardarMobiliario ruta mobiliario = writeFile ruta (unlines $ map mobiliarioToString mobiliario)
+
+
+-- Cargar mobiliario desde un archivo almacenado previamente
+cargarMobiliarioDesdeArchivo :: FilePath -> IO Mobiliarios
+cargarMobiliarioDesdeArchivo ruta = do
+    contenido <- leerArchivo ruta
+    let nuevoMobiliario = cargarMobiliario contenido []
+    return nuevoMobiliario  -- Asegúrate de retornar el nuevo mobiliario si lo necesitas
+
+
+parseMobiliario :: [String] -> Mobiliario
+parseMobiliario [codigoStr, nombre, desc, tipo] =
+  Mobiliario { codigoM = read codigoStr, nombreMobiliario = nombre, descripcion = desc, tipo = tipo }
+parseMobiliario _ = error "Formato incorrecto en el archivo"
 
 
 {-Opciones Operativas
