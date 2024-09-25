@@ -119,6 +119,14 @@ getNombreUsuario idUsuario = do
         let usuario = (head [x | x <- contenido, head x == idUsuario]) !! 1
         return usuario
 
+{-getPuestoUsuario
+Por medio del id del Usuario devuelve el puesto de este-}
+getPuestoUsuario :: String -> IO String
+getPuestoUsuario idUsuario = do
+        contenido <- leerArchivo "archivos/usuarios.txt"
+        let puesto = (head [x | x <- contenido, head x == idUsuario]) !! 2
+        return puesto
+
 
 {-getMobiliarioSala
 devuelve una lista de MobiliarioSala para guardar en memoria-}
@@ -202,7 +210,7 @@ consultarReserva reservas = do
         if esReserva then do
 
                 let reserva = head (filter (\x -> idReserva x == intCode) reservas)
-                mostrarInfoReserva reserva 
+                mostrarInfoReserva reserva
         else do
                 putStrLn "El codigo ingresado no es válido"
                 consultarReserva reservas
@@ -545,11 +553,37 @@ parseMobiliario _ = error "Formato incorrecto en el archivo"
 Muestra toda la informacion de las reservas-}
 mostrarReservas :: Reserva -> Salas -> MobiliariosSala -> Mobiliarios -> IO ()
 mostrarReservas reserva salas mobiliariosSala mobiliarios = do
-        putStrLn "Reserva:"
-        mostrarInfoReserva reserva 
-        putStrLn "Sala:"
+        putStr "---Reserva---"
+        mostrarInfoReserva reserva
+        putStr "---Sala---"
         mostrarinfoSala (idSala reserva) salas mobiliariosSala mobiliarios
 
+
+{-salaMasUsada
+Saca la sala más reservada-}
+salaMasUsada :: Reservas -> Salas -> MobiliariosSala -> Mobiliarios -> IO ()
+salaMasUsada reservas salas mobiliariosSala mobiliarios = do
+        let listaIdSalas = [idSala x | x <- reservas] 
+        let sala = snd (maximum [(length x, head x) | x <- group (sort listaIdSalas)])
+        mostrarinfoSala sala salas mobiliariosSala mobiliarios
+
+
+{-usuarioMasReservas
+Saca el usuario con más reservas hechas-}
+usuarioMasReservas :: Reservas -> IO ()
+usuarioMasReservas reservas = do
+        let listaIdUsuario = [idUsuario x | x <- reservas] 
+        let idUsuario = snd (maximum [(length x, head x) | x <- group (sort listaIdUsuario)])
+
+        nombreUsuario <- getNombreUsuario idUsuario
+        puestoUsuario <- getPuestoUsuario idUsuario
+        putStrLn ("Cédula: " ++ idUsuario)
+        putStrLn ("Nombre: " ++ nombreUsuario)
+        putStrLn ("Puesto: " ++ puestoUsuario)
+
+
+{-diaMasReservado
+Saca el usuario con más reservas hechas-}
 
 {-informeReservas
 Da un informe de las reservas hechas-}
@@ -565,9 +599,15 @@ informeReservas reservas mobiliarios = do
         putStrLn "\n---------Reservas Hechas---------"
         mapM_ (\x -> mostrarReservas x salas mobiliariosSala mobiliarios) reservas
 
-        putStrLn "\n---------Sala más utilizada---------"
+        putStr "\n---------Sala más utilizada---------"
+        salaMasUsada reservas salas mobiliariosSala mobiliarios
+        
         putStrLn "\n---------Usuario con mayor reservas---------"
+        usuarioMasReservas reservas
+
         putStrLn "\n---------Día con mayor cantidad de reservas---------"
+        {-numRepetido ::[Int] -> Int
+        numRepetido lista = snd (maximum[(length x, head x) | x <- group(sort lista)])-}
 
 {-Opciones Operativas
 Submenú para las opciones operativas-}
