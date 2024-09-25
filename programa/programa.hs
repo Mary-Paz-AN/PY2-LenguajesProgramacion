@@ -581,29 +581,23 @@ opcionesOperativas mobiliarios = do
 
         case opcion of
                 "1" -> do
-                        mobiliarioActual <- cargarMobiliarioDesdeArchivo "archivos/mobiliarioGuardado.txt"
                         putStrLn "Mobiliario previamente cargado:"
-                        mapM_ print mobiliarioActual
+                        mapM_ print mobiliarios
 
                         mobiliarios' <- cargarYMostrarMobiliario []
-                        opcionesOperativas mobiliarios
+                        opcionesOperativas mobiliarios'
                 "2" -> do
-                        mobiliarios' <- if null mobiliarios then do
-                                                putStrLn "\nTodavia no se han cargado mobiliarios."
-                                                putStrLn "Se usaran los mobiliarios guardados."
-                                                cargarMobiliarioDesdeArchivo "archivos/mobiliarioGuardado.txt"
-                                        else return mobiliarios
-
                         contenidoSala <- leerArchivo "archivos/salas.txt"
                         contenidoMS <- leerArchivo "archivos/mobiliarioSalas.txt"
                         let salas = map getSala contenidoSala
                         let mobiliarioSala = map getMobiliarioSala contenidoMS
 
-                        cargarMostrarSalas salas mobiliarioSala mobiliarios'
+                        cargarMostrarSalas salas mobiliarioSala mobiliarios
                         opcionesOperativas mobiliarios
                 "3" -> do
                         contenidoReserva <- leerArchivo "archivos/reservas.txt"
                         let reservas = map getReserva contenidoReserva
+
                         informeReservas reservas mobiliarios
                         opcionesOperativas mobiliarios
                 "4" -> do
@@ -631,8 +625,9 @@ menuPrincipal =
                     usuarioInput <- getLine
                     usuario <- verificarUsuario usuarioInput
 
-                    if usuario then
-                        opcionesOperativas []
+                    if usuario then do
+                        mobiliarios <- cargarMobiliarioDesdeArchivo "archivos/mobiliarioGuardado.txt"
+                        opcionesOperativas mobiliarios
                     else
                         putStrLn "El id de usuario puesto no es valido"
 
