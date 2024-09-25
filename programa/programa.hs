@@ -545,7 +545,9 @@ parseMobiliario _ = error "Formato incorrecto en el archivo"
 Muestra toda la informacion de las reservas-}
 mostrarReservas :: Reserva -> Salas -> MobiliariosSala -> Mobiliarios -> IO ()
 mostrarReservas reserva salas mobiliariosSala mobiliarios = do
+        putStrLn "Reserva:"
         mostrarInfoReserva reserva 
+        putStrLn "Sala:"
         mostrarinfoSala (idSala reserva) salas mobiliariosSala mobiliarios
 
 
@@ -560,7 +562,7 @@ informeReservas reservas mobiliarios = do
         let salas = map getSala contenidoSala
         let mobiliariosSala = map getMobiliarioSala contenidoMS
 
-        putStrLn "\n---------Reservas---------"
+        putStrLn "\n---------Reservas Hechas---------"
         mapM_ (\x -> mostrarReservas x salas mobiliariosSala mobiliarios) reservas
 
         putStrLn "\n---------Sala más utilizada---------"
