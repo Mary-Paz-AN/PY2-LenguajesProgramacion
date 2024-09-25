@@ -109,6 +109,9 @@ verificarUsuario usuario = do
     let esUsuario = any (elem usuario) contenido
     return esUsuario
 
+
+{-getNombreUsuario
+Por medio del id del Usuario devuelve el nombre de este-}
 getNombreUsuario :: String -> IO String
 getNombreUsuario idUsuario = do
         contenido <- leerArchivo "archivos/usuarios.txt"
@@ -137,6 +140,39 @@ getReserva [codigo, codUsuario, codSala, fecha, cantidad] =
     Reserva { idReserva = read codigo, idUsuario = codUsuario, idSala = read codSala, fecha = fecha, cantidad = read cantidad }
 
 
+{-reservaToString
+convierte la info de reserva en un string-}
+reservaToString :: Reserva -> String
+reservaToString Reserva { idReserva, idUsuario, idSala, fecha, cantidad } =
+    show idReserva ++ "," ++ idUsuario ++ "," ++ show idSala ++ "," ++ fecha ++ "," ++ show cantidad
+
+
+{-guardarResrvas
+Reescribe el archivo de reservas-}
+guardarResrvas :: FilePath -> Reservas -> IO ()
+guardarResrvas ruta reservas = writeFile ruta (unlines $ map reservaToString reservas)
+
+
+{-cancelarReserva
+Por medio del id de la reserva se va a eliminar la reserva del archivo y de memoria. Se devolvera la lista de reservas nueva-}
+cancelarReserva :: Reservas -> IO Reservas
+cancelarReserva reservas = do
+        putStrLn "Ingrese el id de la reserva:"
+        code <- getLine
+
+        let intCode = (read code :: Int)
+        esReserva <- verificarReserva reservas intCode
+
+        if esReserva then do
+                let nuevasReservas = filter (\x -> idReserva x /= intCode) reservas
+                guardarResrvas "archivos/reservas.txt" nuevasReservas
+                putStrLn "La reserva fue cancelada exitosamente..."
+                return nuevasReservas
+        else do
+                putStrLn "El codigo ingresado no es válido"
+                cancelarReserva reservas
+
+
 {-consultarReserva
 Muestra la información general de la reserva dependiendo del id de reserva dado por el usuario-}
 consultarReserva:: Reservas -> IO ()
@@ -149,6 +185,7 @@ consultarReserva reservas = do
         esReserva <- verificarReserva reservas intCode
 
         if esReserva then do
+
                 let reserva = head (filter (\x -> idReserva x == intCode) reservas)
                 nombreUsuario <- getNombreUsuario (idUsuario reserva)
 
@@ -161,6 +198,7 @@ consultarReserva reservas = do
         else do
                 putStrLn "El codigo ingresado no es válido"
                 consultarReserva reservas
+
 
 {-Opciones Generales
 Sub menu para mostrar las opciones generales-}
@@ -189,15 +227,22 @@ opcionesGenerales reservas salas =
                         consultarReserva reservas
                     opcionesGenerales reservas salas
             "3" -> do
-                    putStrLn "Cancelando Reserva"
-                    opcionesGenerales reservas salas
+                    reservas' <- if null reservas then do
+                                        putStrLn "\nTodavia no hay reservas hechas."
+                                        putStrLn "Porfavor cree una antes de cancelar."
+                                        return reservas
+                                else do
+                                        cancelarReserva reservas
+                    opcionesGenerales reservas' salas
             "4" -> do
                     putStrLn "Modificando Reserva"
                     opcionesGenerales reservas salas
             "5" -> do
                     putStrLn "Consultando disponibilidad de sala"
                     opcionesGenerales reservas salas
-            "6" -> putStrLn "Volviendo al Menú Principal..."
+            "6" -> do
+                    putStrLn "Volviendo al Menú Principal..."
+                    menuPrincipal
             _   -> do
                     putStrLn "Opcion invalida. Vuelva a intentarlo."
                     opcionesGenerales reservas salas
