@@ -1,6 +1,7 @@
 import System.Exit (exitSuccess)
 import Control.Exception (catch, bracket, IOException)
 import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
+import Data.List (group, sort)
 import System.IO
 import System.IO.Error (isEOFError,isDoesNotExistError)
 import Text.Read
@@ -173,6 +174,20 @@ cancelarReserva reservas = do
                 cancelarReserva reservas
 
 
+{-mostrarInfoReserva
+Imprime en pantalla la informacion de las reserva-}
+mostrarInfoReserva :: Reserva -> IO ()
+mostrarInfoReserva reserva = do
+        nombreUsuario <- getNombreUsuario (idUsuario reserva)
+
+        putStrLn $ "\nCódigo: " ++ show (idReserva reserva)
+        putStrLn $ "Reserva hecha por el usuario: " ++ nombreUsuario
+        putStrLn $ "Cédula del usuario: " ++ idUsuario reserva
+        putStrLn $ "Código de la sala reservada: " ++ show (idSala reserva)
+        putStrLn $ "Fecha: " ++ fecha reserva
+        putStrLn $ "Capacidad reservada: " ++ show (cantidad reserva) ++ " personas"
+
+
 {-consultarReserva
 Muestra la información general de la reserva dependiendo del id de reserva dado por el usuario-}
 consultarReserva:: Reservas -> IO ()
@@ -187,14 +202,7 @@ consultarReserva reservas = do
         if esReserva then do
 
                 let reserva = head (filter (\x -> idReserva x == intCode) reservas)
-                nombreUsuario <- getNombreUsuario (idUsuario reserva)
-
-                putStrLn $ "\nCódigo: " ++ show (idReserva reserva)
-                putStrLn $ "Reserva hecha por el usuario: " ++ nombreUsuario
-                putStrLn $ "Cédula del usuario: " ++ idUsuario reserva
-                putStrLn $ "Código de la sala reservada: " ++ show (idSala reserva)
-                putStrLn $ "Fecha: " ++ fecha reserva
-                putStrLn $ "Capacidad reservada: " ++ show (cantidad reserva) ++ " personas"
+                mostrarInfoReserva reserva 
         else do
                 putStrLn "El codigo ingresado no es válido"
                 consultarReserva reservas
@@ -414,6 +422,23 @@ cargarSalas salas = do
                 putStrLn "Error al añadir la sala. Intente nuevamente."
                 cargarSalas salas
 
+{-mostrarinfoSala
+Imprime la informacion de la sala-}
+mostrarinfoSala :: Int -> Salas -> MobiliariosSala -> Mobiliarios -> IO ()
+mostrarinfoSala codigo salas mobiliariosSala mobiliarios = do
+        let sala = head (filter (\x -> codigoS x == codigo) salas)
+
+        putStrLn $ "\nCódigo: " ++ show (codigoS sala)
+        putStrLn $ "Nombre: " ++ nombreSala sala
+        putStrLn $ "Edificio: " ++ edificio sala
+        putStrLn $ "Piso: " ++ show (piso sala)
+        putStrLn $ "Ubicación: " ++ ubicacion sala
+        putStrLn $ "Capacidad: " ++ show (capacidad sala)
+
+        putStrLn "\nMobiliario de la sala:"
+        let listMobi = filter (\y -> codigoSala y == codigo) mobiliariosSala
+        mapM_ (\z -> mobiliarioXCodigo (codigoMobiliario z) mobiliarios) listMobi
+
 
 {-mostrarSalas
 Muestra la sala dependiendo según el código dado-}
@@ -427,18 +452,7 @@ mostrarSala salas mobiliariosSala mobiliarios = do
         esSala <- verificarSala salas intCode
 
         if esSala then do
-                let sala = head (filter (\x -> codigoS x == intCode) salas)
-
-                putStrLn $ "\nCódigo: " ++ show (codigoS sala)
-                putStrLn $ "Nombre: " ++ nombreSala sala
-                putStrLn $ "Edificio: " ++ edificio sala
-                putStrLn $ "Piso: " ++ show (piso sala)
-                putStrLn $ "Ubicación: " ++ ubicacion sala
-                putStrLn $ "Capacidad: " ++ show (capacidad sala)
-
-                putStrLn "\nMobiliario de la sala:"
-                let listMobi = filter (\y -> codigoSala y == intCode) mobiliariosSala
-                mapM_ (\z -> mobiliarioXCodigo (codigoMobiliario z) mobiliarios) listMobi
+                mostrarinfoSala intCode salas mobiliariosSala mobiliarios
         else do
                 putStrLn "El codigo ingresado no es válido"
                 mostrarSala salas mobiliariosSala mobiliarios
@@ -527,6 +541,32 @@ parseMobiliario [codigoStr, nombre, desc, tipo] =
 parseMobiliario _ = error "Formato incorrecto en el archivo"
 
 
+{-mostrarReservas
+Muestra toda la informacion de las reservas-}
+mostrarReservas :: Reserva -> Salas -> MobiliariosSala -> Mobiliarios -> IO ()
+mostrarReservas reserva salas mobiliariosSala mobiliarios = do
+        mostrarInfoReserva reserva 
+        mostrarinfoSala (idSala reserva) salas mobiliariosSala mobiliarios
+
+
+{-informeReservas
+Da un informe de las reservas hechas-}
+informeReservas :: Reservas -> Mobiliarios -> IO ()
+informeReservas reservas mobiliarios = do
+        putStrLn "\n---------Informe de Reservas---------"
+
+        contenidoSala <- leerArchivo "archivos/salas.txt"
+        contenidoMS <- leerArchivo "archivos/mobiliarioSalas.txt"
+        let salas = map getSala contenidoSala
+        let mobiliariosSala = map getMobiliarioSala contenidoMS
+
+        putStrLn "\n---------Reservas---------"
+        mapM_ (\x -> mostrarReservas x salas mobiliariosSala mobiliarios) reservas
+
+        putStrLn "\n---------Sala más utilizada---------"
+        putStrLn "\n---------Usuario con mayor reservas---------"
+        putStrLn "\n---------Día con mayor cantidad de reservas---------"
+
 {-Opciones Operativas
 Submenú para las opciones operativas-}
 opcionesOperativas :: Mobiliarios -> IO()
@@ -562,7 +602,9 @@ opcionesOperativas mobiliarios = do
                         cargarMostrarSalas salas mobiliarioSala mobiliarios'
                         opcionesOperativas mobiliarios
                 "3" -> do
-                        putStrLn "Informe de reservas"
+                        contenidoReserva <- leerArchivo "archivos/reservas.txt"
+                        let reservas = map getReserva contenidoReserva
+                        informeReservas reservas mobiliarios
                         opcionesOperativas mobiliarios
                 "4" -> do
                         putStrLn "Volviendo al Menú Principal..."
