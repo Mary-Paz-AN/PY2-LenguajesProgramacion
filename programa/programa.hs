@@ -9,7 +9,7 @@ import Text.Read
 data Mobiliario = Mobiliario {codigoM::Int, nombreMobiliario::String, descripcion::String, tipo::String} deriving (Show)
 data Sala = Sala {codigoS::Int, nombreSala::String, edificio::String, piso::Int, ubicacion::String, capacidad::Int} deriving (Show)
 data MobiliarioSala = MobiliarioSala {codigoSala::Int, codigoMobiliario::Int} deriving (Show)
-data Reserva = Reserva {idUsuario::Int, idSala::Int, fecha::String, cantidad::Int} deriving (Show)
+data Reserva = Reserva {idReserva::Int, idUsuario::String, idSala::Int, fecha::String, cantidad::Int} deriving (Show)
 
 type Mobiliarios = [Mobiliario]
 type Salas = [Sala]
@@ -77,6 +77,14 @@ esEntero input = case readMaybe input :: Maybe Int of
         Nothing -> False
 
 
+{-verificarReserva
+Verifica si el id de la reserva existe o no-}
+verificarReserva :: Reservas -> Int -> IO Bool
+verificarReserva reservas codigo = do
+    let esReserva = any (\r -> idReserva r == codigo) reservas
+    return esReserva
+
+
 {-verificarSala
 Verifica si el id de la sala existe o no-}
 verificarSala :: Salas -> Int -> IO Bool
@@ -101,11 +109,63 @@ verificarUsuario usuario = do
     let esUsuario = any (elem usuario) contenido
     return esUsuario
 
+getNombreUsuario :: String -> IO String
+getNombreUsuario idUsuario = do
+        contenido <- leerArchivo "archivos/usuarios.txt"
+        let usuario = (head [x | x <- contenido, head x == idUsuario]) !! 1
+        return usuario
+
+
+{-getMobiliarioSala
+devuelve una lista de MobiliarioSala para guardar en memoria-}
+getMobiliarioSala:: [String] -> MobiliarioSala
+getMobiliarioSala [codigoS, codigoM] =
+    MobiliarioSala { codigoSala = read codigoS, codigoMobiliario = read codigoM }
+
+
+{-getSala
+devuelve una lista de Sala para guardar en memoria-}
+getSala:: [String] -> Sala
+getSala [codigo, nombre, edificio, piso, ubicacion, capacidad] =
+    Sala { codigoS = read codigo, nombreSala = nombre, edificio = edificio, piso = read piso, ubicacion = ubicacion, capacidad = read capacidad }
+
+
+{-getReserva
+devuelve una lista de Reserva para guardar en memoria-}
+getReserva:: [String] -> Reserva
+getReserva [codigo, codUsuario, codSala, fecha, cantidad] =
+    Reserva { idReserva = read codigo, idUsuario = codUsuario, idSala = read codSala, fecha = fecha, cantidad = read cantidad }
+
+
+{-consultarReserva
+Muestra la información general de la reserva dependiendo del id de reserva dado por el usuario-}
+consultarReserva:: Reservas -> IO ()
+consultarReserva [] = putStrLn "\nAún no se han hecho reservas."
+consultarReserva reservas = do
+        putStrLn "Ingrese el id de la reserva:"
+        code <- getLine
+
+        let intCode = (read code :: Int)
+        esReserva <- verificarReserva reservas intCode
+
+        if esReserva then do
+                let reserva = head (filter (\x -> idReserva x == intCode) reservas)
+                nombreUsuario <- getNombreUsuario (idUsuario reserva)
+
+                putStrLn $ "\nCódigo: " ++ show (idReserva reserva)
+                putStrLn $ "Reserva hecha por el usuario: " ++ nombreUsuario
+                putStrLn $ "Cédula del usuario: " ++ idUsuario reserva
+                putStrLn $ "Código de la sala reservada: " ++ show (idSala reserva)
+                putStrLn $ "Fecha: " ++ fecha reserva
+                putStrLn $ "Capacidad reservada: " ++ show (cantidad reserva) ++ " personas"
+        else do
+                putStrLn "El codigo ingresado no es válido"
+                consultarReserva reservas
 
 {-Opciones Generales
 Sub menu para mostrar las opciones generales-}
-opcionesGenerales :: IO()
-opcionesGenerales =
+opcionesGenerales :: Reservas -> Salas -> IO()
+opcionesGenerales reservas salas =
     do
         putStrLn "\n--Opciones Generales--"
         putStrLn "1. Gestión de reserva"
@@ -114,29 +174,33 @@ opcionesGenerales =
         putStrLn "4. Modificar reserva"
         putStrLn "5. Consulta de disponibilidad de sala"
         putStrLn "6. Volver"
-        print "Ingrese la opcion deseada: "
+        putStrLn "Ingrese la opcion deseada:"
         opcion <- getLine
 
         case opcion of
             "1" -> do
                     putStrLn "Gestionando Reserva"
-                    opcionesGenerales
+                    opcionesGenerales reservas salas
             "2" -> do
-                    putStrLn "Consultando Reserva"
-                    opcionesGenerales
+                    if null reservas then do
+                        putStrLn "\nTodavia no hay reservas hechas."
+                        putStrLn "Porfavor cree una antes de consultar."
+                    else do
+                        consultarReserva reservas
+                    opcionesGenerales reservas salas
             "3" -> do
                     putStrLn "Cancelando Reserva"
-                    opcionesGenerales
+                    opcionesGenerales reservas salas
             "4" -> do
                     putStrLn "Modificando Reserva"
-                    opcionesGenerales
+                    opcionesGenerales reservas salas
             "5" -> do
                     putStrLn "Consultando disponibilidad de sala"
-                    opcionesGenerales
+                    opcionesGenerales reservas salas
             "6" -> putStrLn "Volviendo al Menú Principal..."
             _   -> do
                     putStrLn "Opcion invalida. Vuelva a intentarlo."
-                    opcionesGenerales
+                    opcionesGenerales reservas salas
 
 
 {-mostrarMobiliarios
@@ -229,7 +293,7 @@ preguntarXPiso = do
         putStrLn "Ingrese el piso en el que se encuentra la sala:"
         piso <- getLine
 
-        if esEntero piso then 
+        if esEntero piso then
                 if piso == "0" then do
                         putStrLn "\nNo existe el piso 0. Porfavor vuelva a ingresarlo."
                         preguntarXPiso
@@ -250,7 +314,7 @@ preguntarXCantidad = do
         putStrLn "Ingrese la capacidad de la sala:"
         capacidad <- getLine
 
-        if esEntero capacidad then 
+        if esEntero capacidad then
                 if capacidad == "0" then do
                         putStrLn "\nLa catidad no puede ser 0. Porfavor vuelva a ingresarla."
                         preguntarXCantidad
@@ -343,7 +407,7 @@ cargarMostrarSalas salas mobiliariosSala mobiliarios = do
         putStrLn "1. Cargar Sala"
         putStrLn "2. Mostrar salas"
         putStrLn "3. Volver"
-        print "Ingrese la opcion deseada: "
+        putStrLn "Ingrese la opcion deseada: "
         opcion <- getLine
 
         case opcion of
@@ -362,20 +426,6 @@ cargarMostrarSalas salas mobiliariosSala mobiliarios = do
             _   -> do
                     putStrLn "Opcion Invalida. Vuelva a intentarlo."
                     cargarMostrarSalas salas mobiliariosSala mobiliarios
-
-
-{-getMobiliarioSala
-devuelve una lista de MobiliarioSala para guardar en memoria-}
-getMobiliarioSala:: [String] -> MobiliarioSala
-getMobiliarioSala [codigoS, codigoM] =
-    MobiliarioSala { codigoSala = read codigoS, codigoMobiliario = read codigoM }
-
-
-{-getSalas
-devuelve una lista de Sala para guardar en memoria-}
-getSalas:: [String] -> Sala
-getSalas [codigo, nombre, edificio, piso, ubicacion, capacidad] =
-    Sala { codigoS = read codigo, nombreSala = nombre, edificio = edificio, piso = read piso, ubicacion = ubicacion, capacidad = read capacidad }
 
 
 cargarYMostrarMobiliario :: Mobiliarios -> IO Mobiliarios
@@ -441,7 +491,7 @@ opcionesOperativas mobiliarios = do
         putStrLn "2. Cargar y mostrar sala de reunión"
         putStrLn "3. Informe de reservas"
         putStrLn "4. Volver"
-        print "Ingrese la opcion deseada: "
+        putStrLn "Ingrese la opcion deseada: "
         opcion <- getLine
 
         case opcion of
@@ -461,7 +511,7 @@ opcionesOperativas mobiliarios = do
 
                         contenidoSala <- leerArchivo "archivos/salas.txt"
                         contenidoMS <- leerArchivo "archivos/mobiliarioSalas.txt"
-                        let salas = map getSalas contenidoSala
+                        let salas = map getSala contenidoSala
                         let mobiliarioSala = map getMobiliarioSala contenidoMS
 
                         cargarMostrarSalas salas mobiliarioSala mobiliarios'
@@ -485,7 +535,7 @@ menuPrincipal =
         putStrLn "1. Opciones Operativas"
         putStrLn "2. Opciones Generales"
         putStrLn "3. Salir"
-        print "Ingrese la opcion deseada: "
+        putStrLn "Ingrese la opcion deseada: "
         opcion <- getLine
 
         case opcion of
@@ -501,7 +551,11 @@ menuPrincipal =
 
                     menuPrincipal
             "2" -> do
-                    opcionesGenerales
+                    contenidoReserva <- leerArchivo "archivos/reservas.txt"
+                    let reservas = map getReserva contenidoReserva
+                    contenidoSala <- leerArchivo "archivos/salas.txt"
+                    let salas = map getSala contenidoSala
+                    opcionesGenerales reservas salas
                     menuPrincipal
             "3" -> do
                     putStrLn "Saliendo del porgrama..."
