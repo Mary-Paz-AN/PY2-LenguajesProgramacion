@@ -90,11 +90,11 @@ esEntero input = case readMaybe input :: Maybe Int of
 {-validarFecha
 Verifica si el formato dela fecha es correcto-}
 validarFecha :: String -> IO Bool
-validateDate fecha = do
+validarFecha fecha = do
     let maybeFecha = parseTimeM True defaultTimeLocale "%Y-%m-%d" fecha :: Maybe Day
     case maybeFecha of
-        Just _  -> putStrLn True
-        Nothing -> putStrLn False
+        Just _  -> return True
+        Nothing -> return False
 
 
 {-verificarReserva
@@ -274,8 +274,7 @@ preguntarXSala salas = do
         putStrLn "Ingrese el id de la sala:"
         code <- getLine
 
-        esEntero <- esEntero code
-        if esEntero then do
+        if esEntero code then do
                 let intCode = read code
                 if intCode > 0 then do
                         existe <- verificarSala salas intCode
@@ -284,7 +283,7 @@ preguntarXSala salas = do
                         else do
                                 putStrLn "El id de la sala ingresada no existe."
                                 putStrLn "Porfavor vuelva a ingresarlo"
-                                preguntarXSala sala
+                                preguntarXSala salas
                 else do
                         putStrLn "Porfavor ingrese un número mayor a 0."
                         preguntarXSala salas
@@ -300,11 +299,10 @@ preguntarXCantidad = do
         putStrLn "Ingrese el número de personas para la reserva:"
         cantidad <- getLine
 
-        esEntero <- esEntero cantidad
-        if esEntero then do
+        if esEntero cantidad then do
                 let intCantidad = read cantidad
                 if intCantidad > 0 then 
-                        return cantidad
+                        return intCantidad
                 else do
                         putStrLn "Porfavor ingrese un número mayor a 0."
                         preguntarXCantidad
@@ -312,12 +310,20 @@ preguntarXCantidad = do
                 putStrLn "Porfavor ingrese un número mayor a 0."
                 preguntarXCantidad
 
-                
+
+{-verificarDatos
+Verifica que la sala este disponible en la fecha dada. Tambien consulta si la cantidad dada es válida.-}
+verificarDatos :: Reservas -> Salas -> String -> Int -> Int -> IO Bool
+verificarDatos reservas salas fecha sala cantidad = do
+        putStrLn "Hola"
+        return True
+
+
 {-gestionDeReservas
 Se encarga de pregntarle al usuario informacion de una reserva para crearla-}
-gestionDeReservas :: Reservas -> Salas -> Reservas
+gestionDeReservas :: Reservas -> Salas -> IO Reservas
 gestionDeReservas reservas salas = do
-        let codigo = succ (codigoS (last reservas))
+        let codigo = succ (idSala (last reservas))
 
         usuario <- preguntarXUsuario
         fecha <- preguntarXFecha
@@ -334,7 +340,7 @@ gestionDeReservas reservas salas = do
                         let nuevaReserva = Reserva { idReserva = codigo, idUsuario = usuario, idSala = sala, fecha = fecha, cantidad = cantidad }
                         mostrarInfoReserva nuevaReserva
 
-                        return (reservas ++ nuevaReserva)
+                        return (reservas ++ [nuevaReserva])
                 else do
                         putStrLn "Hubo un error al uardar la información"
                         putStrLn "Porfavor vuelva a intentarlo."
@@ -363,7 +369,7 @@ opcionesGenerales reservas salas =
         case opcion of
             "1" -> do
                     reservas' <- if null salas then do
-                                        putStrLn "Todavio no hay salas existentes."
+                                        putStrLn "Todavia no hay salas existentes."
                                         putStrLn "Porfavor, cree una y vuelva a intentarlo."
                                         return reservas
                                 else do
