@@ -2,9 +2,18 @@ import System.Exit (exitSuccess)
 import Control.Exception (catch, bracket, IOException)
 import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
 import Data.List (group, sort)
+import Data.Time (parseTimeM, defaultTimeLocale, Day) {-Descargar libreria, instrucciones en la documentación-}
 import System.IO
+    ( Handle,
+      hClose,
+      hIsEOF,
+      hGetLine,
+      hPutStrLn,
+      openFile,
+      IOMode(AppendMode, ReadMode) )
 import System.IO.Error (isEOFError,isDoesNotExistError)
 import Text.Read
+
 
 {-Data structures y types-}
 data Mobiliario = Mobiliario {codigoM::Int, nombreMobiliario::String, descripcion::String, tipo::String} deriving (Show)
@@ -76,6 +85,16 @@ esEntero :: String -> Bool
 esEntero input = case readMaybe input :: Maybe Int of
         Just _ -> True
         Nothing -> False
+
+
+{-validarFecha
+Verifica si el formato dela fecha es correcto-}
+validarFecha :: String -> IO Bool
+validateDate fecha = do
+    let maybeFecha = parseTimeM True defaultTimeLocale "%Y-%m-%d" fecha :: Maybe Day
+    case maybeFecha of
+        Just _  -> putStrLn True
+        Nothing -> putStrLn False
 
 
 {-verificarReserva
@@ -216,6 +235,116 @@ consultarReserva reservas = do
                 consultarReserva reservas
 
 
+{-preguntarXUsuario
+Pregunta por el usuario para crear la reserva. Verifica si el usuario existe o no.-}
+preguntarXUsuario :: IO String
+preguntarXUsuario = do
+        putStrLn "Ingrese el id de usuario:"
+        code <- getLine
+
+        existe <- verificarUsuario code
+        if existe then 
+                return code
+        else do
+                putStrLn "El usuario ingresado no existe."
+                putStrLn "Porfavor ingrese uno que sea válido."
+                preguntarXUsuario
+
+
+{-preguntarXFecha
+Pregunta por la fecha y valida que su formato sea correcto. Si lo es devuelve la fecha ingresada-}
+preguntarXFecha :: IO String
+preguntarXFecha = do
+        putStrLn "Ingrese la fecha de la reserva (YYYY-MM-DD):"
+        fecha <- getLine
+
+        esValida <- validarFecha fecha
+        if esValida then do
+                return fecha
+        else do
+                putStrLn "El formato de la fecha no es correcto."
+                putStrLn "Porfvor vueva a intentarlo."
+                preguntarXFecha
+
+
+{-preguntarXSala
+Pregunta por el id de la sala. Verifica el formato de la entraa y si la sal existe. Si todo es correcto deviuelve el id de la sala-}
+preguntarXSala :: Salas -> IO Int
+preguntarXSala salas = do
+        putStrLn "Ingrese el id de la sala:"
+        code <- getLine
+
+        esEntero <- esEntero code
+        if esEntero then do
+                let intCode = read code
+                if intCode > 0 then do
+                        existe <- verificarSala salas intCode
+                        if existe then 
+                                return intCode
+                        else do
+                                putStrLn "El id de la sala ingresada no existe."
+                                putStrLn "Porfavor vuelva a ingresarlo"
+                                preguntarXSala sala
+                else do
+                        putStrLn "Porfavor ingrese un número mayor a 0."
+                        preguntarXSala salas
+        else do
+                putStrLn "Porfavor ingrese un número mayor a 0."
+                preguntarXSala salas
+
+
+{-preguntarXCantidad
+Pregunta por la cantidad para la reserva. Verifica si su formato es correcto. Si lo es devuelve la cantidad.-}
+preguntarXCantidad :: IO Int
+preguntarXCantidad = do
+        putStrLn "Ingrese el número de personas para la reserva:"
+        cantidad <- getLine
+
+        esEntero <- esEntero cantidad
+        if esEntero then do
+                let intCantidad = read cantidad
+                if intCantidad > 0 then 
+                        return cantidad
+                else do
+                        putStrLn "Porfavor ingrese un número mayor a 0."
+                        preguntarXCantidad
+        else do
+                putStrLn "Porfavor ingrese un número mayor a 0."
+                preguntarXCantidad
+
+                
+{-gestionDeReservas
+Se encarga de pregntarle al usuario informacion de una reserva para crearla-}
+gestionDeReservas :: Reservas -> Salas -> Reservas
+gestionDeReservas reservas salas = do
+        let codigo = succ (codigoS (last reservas))
+
+        usuario <- preguntarXUsuario
+        fecha <- preguntarXFecha
+        sala <- preguntarXSala salas
+        cantidad <- preguntarXCantidad
+
+        exitoReserva <- verificarDatos reservas salas fecha sala cantidad
+
+        if exitoReserva then do
+                let strReserva = show codigo ++ "," ++  usuario ++ "," ++ show sala ++ fecha ++ show cantidad
+                guardado <- escribirAppendArchivo "archivos/reservas.txt" strReserva
+
+                if guardado then do
+                        let nuevaReserva = Reserva { idReserva = codigo, idUsuario = usuario, idSala = sala, fecha = fecha, cantidad = cantidad }
+                        mostrarInfoReserva nuevaReserva
+
+                        return (reservas ++ nuevaReserva)
+                else do
+                        putStrLn "Hubo un error al uardar la información"
+                        putStrLn "Porfavor vuelva a intentarlo."
+                        gestionDeReservas reservas salas
+        else do
+                putStrLn "La creación de la reserva no fue posible."
+                putStrLn "Porfavor vuelva a intentarlo."
+                return reservas
+
+
 {-Opciones Generales
 Sub menu para mostrar las opciones generales-}
 opcionesGenerales :: Reservas -> Salas -> IO()
@@ -233,8 +362,13 @@ opcionesGenerales reservas salas =
 
         case opcion of
             "1" -> do
-                    putStrLn "Gestionando Reserva"
-                    opcionesGenerales reservas salas
+                    reservas' <- if null salas then do
+                                        putStrLn "Todavio no hay salas existentes."
+                                        putStrLn "Porfavor, cree una y vuelva a intentarlo."
+                                        return reservas
+                                else do
+                                        gestionDeReservas reservas salas
+                    opcionesGenerales reservas' salas
             "2" -> do
                     if null reservas then do
                         putStrLn "\nTodavia no hay reservas hechas."
@@ -368,25 +502,25 @@ preguntarXPiso = do
                 preguntarXPiso
 
 
-{-preguntarXCantidad
+{-preguntarXCapacidad
 Le pregunta al usuario por la cantidad de la sala y verifica si el dato ingresado por el usuario sea correcto-}
-preguntarXCantidad:: IO String
-preguntarXCantidad = do
+preguntarXCapacidad:: IO String
+preguntarXCapacidad = do
         putStrLn "Ingrese la capacidad de la sala:"
         capacidad <- getLine
 
         if esEntero capacidad then
                 if capacidad == "0" then do
                         putStrLn "\nLa catidad no puede ser 0. Porfavor vuelva a ingresarla."
-                        preguntarXCantidad
+                        preguntarXCapacidad
                 else do
                         if read capacidad < 0 then do
                                 putStrLn "\nLa cantidad no puede ser negativa. Porfavor vuelva a ingresarla"
-                                preguntarXCantidad
+                                preguntarXCapacidad
                         else return capacidad
         else do
                 putStrLn "\nEl valor ingresado no es un entero. Intente nuevamente."
-                preguntarXCantidad
+                preguntarXCapacidad
 
 
 {-cargarSalas
@@ -404,7 +538,7 @@ cargarSalas salas = do
         putStrLn "Ingrese la ubicación en el que se encuentra la sala:"
         ubicacion <- getLine
 
-        capacidad <- preguntarXCantidad
+        capacidad <- preguntarXCapacidad
 
         let codigo = succ (codigoS (last salas))
         let strCodigo = show codigo
@@ -563,7 +697,7 @@ mostrarReservas reserva salas mobiliariosSala mobiliarios = do
 Saca la sala más reservada-}
 salaMasUsada :: Reservas -> Salas -> MobiliariosSala -> Mobiliarios -> IO ()
 salaMasUsada reservas salas mobiliariosSala mobiliarios = do
-        let listaIdSalas = [idSala x | x <- reservas] 
+        let listaIdSalas = [idSala x | x <- reservas]
         let sala = snd (maximum [(length x, head x) | x <- group (sort listaIdSalas)])
         mostrarinfoSala sala salas mobiliariosSala mobiliarios
 
@@ -572,7 +706,7 @@ salaMasUsada reservas salas mobiliariosSala mobiliarios = do
 Saca el usuario con más reservas hechas-}
 usuarioMasReservas :: Reservas -> IO ()
 usuarioMasReservas reservas = do
-        let listaIdUsuario = [idUsuario x | x <- reservas] 
+        let listaIdUsuario = [idUsuario x | x <- reservas]
         let idUsuario = snd (maximum [(length x, head x) | x <- group (sort listaIdUsuario)])
 
         nombreUsuario <- getNombreUsuario idUsuario
@@ -601,7 +735,7 @@ informeReservas reservas mobiliarios = do
 
         putStr "\n---------Sala más utilizada---------"
         salaMasUsada reservas salas mobiliariosSala mobiliarios
-        
+
         putStrLn "\n---------Usuario con mayor reservas---------"
         usuarioMasReservas reservas
 
