@@ -2,7 +2,7 @@ import System.Exit (exitSuccess)
 import Control.Exception (catch, bracket, IOException)
 import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
 import Data.List (group, sort)
-import Data.Time (parseTimeM, defaultTimeLocale, Day) {-Descargar libreria, instrucciones en la documentación-}
+import Data.Time (parseTimeM, defaultTimeLocale, Day, formatTime, parseTimeOrError) {-Descargar libreria, instrucciones en la documentación-}
 import System.IO
     ( Handle,
       hClose,
@@ -179,7 +179,6 @@ reservaToString Reserva { idReserva, idUsuario, idSala, fecha, cantidad } =
 Reescribe el archivo de reservas-}
 guardarResrvas :: FilePath -> Reservas -> IO ()
 guardarResrvas ruta reservas = writeFile ruta (unlines $ map reservaToString reservas)
-
 
 {-cancelarReserva
 Por medio del id de la reserva se va a eliminar la reserva del archivo y de memoria. Se devolvera la lista de reservas nueva-}
@@ -363,6 +362,140 @@ gestionDeReservas reservas salas = do
                 putStrLn "Porfavor vuelva a intentarlo."
                 return reservas
 
+preguntarFecha :: IO String
+preguntarFecha = do
+        putStrLn "\nIngrese la fecha  (YYYY-MM-DD):"
+        fecha <- getLine
+
+        esValida <- validarFecha fecha
+        if esValida then do
+                return fecha
+        else do
+                putStrLn "\nEl formato de la fecha no es correcto."
+                putStrLn "Porfvor vueva a intentarlo."
+                preguntarFecha
+{-Consultar disponibilidad
+Funcion para consultar la disponibilidad de una sala-}
+consultarDispo :: Reservas -> Salas -> IO Reservas
+consultarDispo reservas salas = do
+        putStrLn "\n--Consultas--"
+        putStrLn "1. Por fecha"
+        putStrLn "2. Por Rango de fechas"
+        putStrLn "3. Volver"
+        putStrLn "Ingrese la opcion deseada:"
+        opcion <- getLine
+
+        case opcion of
+            "1" -> do
+                fechaConsultada <- preguntarFecha 
+                let salasDisponibles = salasDisponiblesEnFecha reservas salas fechaConsultada 
+                putStrLn $ "Salas disponibles en " ++ fechaConsultada ++ ":"
+                mapM_ mostrarSalaConsulta salasDisponibles 
+                consultarDispo reservas salas 
+
+            "2" -> do
+                putStrLn "\nFecha Inicial: "
+                fechaInicio <- preguntarFecha
+                putStrLn "\nFecha Final: "
+                fechaFin <- preguntarFecha
+                consultarPorRango reservas salas fechaInicio fechaFin
+                consultarDispo reservas salas
+            "3" -> do
+                putStrLn "Volviendo al Menu de Opciones Generales..."
+                return reservas
+            _   -> do
+                putStrLn "Opcion invalida. Vuelva a intentarlo."
+                consultarDispo reservas salas
+
+{-Mostrar Sala Consulta
+Funcion que muestra el nombre y capacidad de una sala-}
+mostrarSalaConsulta :: Sala -> IO ()
+mostrarSalaConsulta sala = putStrLn $ nombreSala sala ++ " (Capacidad: " ++ show (capacidad sala) ++ ")"
+
+{-Salas disponibles fecha
+Funcion que devuelve una lista de salas disponibles en una fecha en especifica-}
+salasDisponiblesEnFecha :: Reservas -> Salas -> String -> [Sala]
+salasDisponiblesEnFecha reservas salas fechaConsultada =
+    let salasReservadas = [idSala r | r <- reservas, fecha r == fechaConsultada]
+    in filter (\s -> codigoS s `notElem` salasReservadas) salas
+
+{-Generador de fechas
+Funcion que genera un arreglo de fechas en un rango especifico-}
+generarFechasRango :: String -> String -> [String]
+generarFechasRango inicio fin = map (formatTime defaultTimeLocale "%Y-%m-%d")
+                                [parseTimeOrError True defaultTimeLocale "%Y-%m-%d" inicio ::
+                                Day .. parseTimeOrError True defaultTimeLocale "%Y-%m-%d" fin]
+
+{-Consultar salas por rango
+Funcion que genera un arreglo de salas disponibles en un rango de fechas-}                               
+consultarPorRango :: Reservas -> Salas -> String -> String -> IO ()
+consultarPorRango reservas salas fechaInicio fechaFin = do
+    let fechas = generarFechasRango fechaInicio fechaFin
+    mapM_ (\fecha -> do
+            let salasDisponibles = salasDisponiblesEnFecha reservas salas fecha
+            putStrLn $ "\nFecha: " ++ fecha
+            putStrLn "Salas disponibles:"
+            mapM_ mostrarSalaConsulta salasDisponibles
+          ) fechas
+
+{-Modificacion de Reserva
+Funcion para modificar una reserva almacenada en el sistema-}
+modificarReserva :: Reservas -> Salas -> IO Reservas
+modificarReserva reservas salas = do
+        putStrLn "Ingrese el id de la reserva:"
+        code <- getLine
+        let intCode = (read code :: Int)
+        esReserva <- verificarReserva reservas intCode
+
+        if esReserva then do
+                let reservaOriginal = head (filter (\r -> idReserva r == intCode) reservas)
+                putStrLn "¿Desea modificar la sala? (S/N)"
+                modificarSala <- getLine
+                nuevaSala <- if modificarSala == "S" then do
+                        putStrLn "Ingrese el nuevo identificador de sala:"
+                        sala <- getLine
+                        return (read sala :: Int)
+                else return (idSala reservaOriginal)
+
+                putStrLn "¿Desea modificar la fecha? (S/N)"
+                modificarFecha <- getLine
+                nuevaFecha <- if modificarFecha == "S" then
+                        preguntarXFecha
+                else return (fecha reservaOriginal)
+
+                putStrLn "¿Desea modificar la cantidad de personas? (S/N)"
+                modificarCantidad <- getLine
+                nuevaCantidad <- if modificarCantidad == "S" then do
+                        putStrLn "Ingrese la nueva cantidad de personas:"
+                        cantidad <- getLine
+                        return (read cantidad :: Int)
+                else return (cantidad reservaOriginal)
+
+                let nuevasReservas = filter (\x -> idReserva x /= intCode) reservas
+                exitoReserva <- verificarDatos nuevasReservas salas nuevaFecha nuevaSala nuevaCantidad
+
+                if exitoReserva then do
+                        
+                        let nuevaReserva = Reserva { 
+                                idReserva = idReserva reservaOriginal,   
+                                idUsuario = idUsuario reservaOriginal,   
+                                idSala = nuevaSala,                      
+                                fecha = nuevaFecha,                      
+                                cantidad = nuevaCantidad                 
+                        }
+                        mostrarInfoReserva nuevaReserva
+                        putStrLn "\nLa reserva fue modificada con exito..."
+
+                        let listaActualizada = nuevasReservas ++ [nuevaReserva]
+                        guardarResrvas "archivos/reservas.txt" listaActualizada
+                        return listaActualizada
+                else do
+                        putStrLn "\nLa modificacion de la reserva no fue posible."
+                        putStrLn "Porfavor vuelva a intentarlo."
+                        return reservas
+        else do
+                putStrLn "El codigo ingresado no es válido"
+                modificarReserva reservas salas
 
 {-Opciones Generales
 Sub menu para mostrar las opciones generales-}
@@ -404,11 +537,20 @@ opcionesGenerales reservas salas =
                                         cancelarReserva reservas
                     opcionesGenerales reservas' salas
             "4" -> do
-                    putStrLn "Modificando Reserva"
-                    opcionesGenerales reservas salas
+                    reservas' <- if null reservas then do
+                                        putStrLn "\nTodavia no hay reservas hechas."
+                                        putStrLn "Porfavor cree una antes de modificar."
+                                        return reservas
+                                else do
+                                        modificarReserva reservas salas
+                    opcionesGenerales reservas' salas
             "5" -> do
-                    putStrLn "Consultando disponibilidad de sala"
-                    opcionesGenerales reservas salas
+                    reservas' <- if null reservas then do
+                                        putStrLn "\nTodavia no hay reservas hechas."
+                                        return reservas
+                                else do
+                                        consultarDispo reservas salas
+                    opcionesGenerales reservas' salas
             "6" -> do
                     putStrLn "Volviendo al Menú Principal..."
                     menuPrincipal
