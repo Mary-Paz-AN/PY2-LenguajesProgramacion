@@ -879,6 +879,12 @@ usuarioMasReservas reservas = do
 
 {-diaMasReservado
 Saca el usuario con más reservas hechas-}
+diaMasReservado :: Reservas -> IO ()
+diaMasReservado reservas = do
+        let listaFechas = [fecha x | x <- reservas]
+        let fecha = snd (maximum [(length x, head x) | x <- group (sort listaFechas)])
+
+        putStrLn fecha
 
 {-informeReservas
 Da un informe de las reservas hechas-}
@@ -901,8 +907,7 @@ informeReservas reservas mobiliarios = do
         usuarioMasReservas reservas
 
         putStrLn "\n---------Día con mayor cantidad de reservas---------"
-        {-numRepetido ::[Int] -> Int
-        numRepetido lista = snd (maximum[(length x, head x) | x <- group(sort lista)])-}
+        diaMasReservado reservas
 
 {-Opciones Operativas
 Submenú para las opciones operativas-}
