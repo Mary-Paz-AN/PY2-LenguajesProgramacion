@@ -767,7 +767,7 @@ cargarMostrarSalas:: Salas -> MobiliariosSala -> Mobiliarios -> IO ()
 cargarMostrarSalas salas mobiliariosSala mobiliarios = do
         putStrLn "\n--Salas--"
         putStrLn "1. Cargar Sala"
-        putStrLn "2. Mostrar salas"
+        putStrLn "2. Mostrar sala"
         putStrLn "3. Volver"
         putStrLn "Ingrese la opcion deseada: "
         opcion <- getLine
