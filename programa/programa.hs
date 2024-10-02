@@ -1,8 +1,8 @@
+import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
+import Data.Time (parseTimeM, defaultTimeLocale, Day, formatTime, parseTimeOrError) {-Descargar libreria, instrucciones en la documentación-}
 import System.Exit (exitSuccess)
 import Control.Exception (catch, bracket, IOException)
-import Data.List.Split (splitOn)  {-Descargar libreria, instrucciones en la documentación-}
 import Data.List (group, sort)
-import Data.Time (parseTimeM, defaultTimeLocale, Day, formatTime, parseTimeOrError) {-Descargar libreria, instrucciones en la documentación-}
 import System.IO
     ( Handle,
       hClose,
@@ -12,7 +12,7 @@ import System.IO
       openFile,
       IOMode(AppendMode, ReadMode) )
 import System.IO.Error (isEOFError,isDoesNotExistError)
-import Text.Read
+import Text.Read ( readMaybe )
 
 
 {-Data structures y types-}
